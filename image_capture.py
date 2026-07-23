@@ -1,3 +1,9 @@
+"""
+This code captures a series of raw or jpeg images with changes in the liquid lens.
+It can be run either at high speed (without specified settling time) or with 
+specified settling time for comparing images.
+"""
+
 import smbus
 from PyQt5.QtCore import QObject, pyqtSignal
 from logger import logger
@@ -113,6 +119,6 @@ fps = image_counter / (t1 - t0)
 print(f"FPS: {fps:.2f}")
 
 #save raw image array
-np.save("ll_3d_picam2.npy", frames)
+np.save("liquid_lens_test.npy", frames)
 
 picam2.stop()
