@@ -9,7 +9,6 @@ import cv2
 from pathlib import Path
 from scipy.stats import ttest_ind
 from sklearn.decomposition import PCA
-from sklearn.linear_model import LinearRegression
 
 #separate into bggr components for fits compilation images (all blue frames in one, all green1 frames in one, etc.)
 def bggr_separation_fits(raw_image_array):
@@ -42,35 +41,6 @@ def find_sharpest_image_tenengrad(array):
     
     return sharpest_image, sharpest_image_number
 
-#find the sharpest image in an array of images using the laplacian       
-def find_sharpest_image_laplacian(array):
-    sharpest_image = array[0]
-    sharpest_image_number = 0
-    for i in range(0, len(array)):
-        image = array[i].astype(np.float32)
-        sharpest_image_score = cv2.Laplacian(sharpest_image, cv2.CV_32F).var()
-        image_score = cv2.Laplacian(image, cv2.CV_32F).var()
-        if sharpest_image_score < image_score:
-            sharpest_image = image
-            sharpest_image_number = i
-    
-    return sharpest_image, sharpest_image_number
-
-#find sharpest image in array using the gradient
-def find_sharpest_image_gradient(array):
-    scores = []
-    for image in array:
-        gy, gx = np.gradient(image)
-        gnorm = np.sqrt(gx**2 + gy**2)
-        sharpness = np.average(gnorm)
-        scores.append(sharpness)
-    
-    print(np.mean(scores), np.std(scores))
-    
-    plt.plot(scores)
-    plt.xlabel("Frame")
-    plt.ylabel("Sharpness score")
-    plt.show()
 
 #calculate the amount of dots in an image
 def get_dot_amount(image):
@@ -219,59 +189,6 @@ def dot_distortion_rms(image):
 
     return rms
 
-#read the space between two dots in an image if you already know the rows and columns
-def read_dots_findCirclesGrid(image, columns, rows):
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    pattern_size = (columns, rows)
-
-    found, centers = cv2.findCirclesGrid(gray_image, pattern_size, flags=cv2.CALIB_CB_SYMMETRIC_GRID)
-    # print("Found grid:", found)
-
-    if found:
-        #print("Number of centers:", len(centers))
-        # image_draw = image.copy()
-        # cv2.drawChessboardCorners(
-        #     image_draw,
-        #     pattern_size,
-        #     centers,
-        #     found
-        # )
-
-        # plt.imshow(cv2.cvtColor(image_draw, cv2.COLOR_BGR2RGB))
-        # plt.show()
-
-        centers = centers.reshape(-1, 2)
-        
-        rows, cols = pattern_size[1], pattern_size[0]
-        
-        horizontal = np.zeros((rows, cols-1))
-
-
-
-        for r in range(rows):
-            row_centers = centers[r*cols:(r+1)*cols]
-
-            for c in range(cols-1):
-                horizontal[r,c] = row_centers[c+1, 0] - row_centers[c, 0]
-
-        
-        vertical = np.zeros((rows-1, cols))
-
-        for r in range(rows-1):
-            for c in range(cols):
-                top = centers[r*cols+c]
-                bottom = centers[(r+1)*cols+c]
-
-                vertical[r, c] = bottom[1] - top[1]
-
-        
-        # np.set_printoptions(precision=2, suppress=True)
-        # print("Horizontal Spacing:", horizontal)
-        # print("\nVertical Spacing:", vertical)
-
-        # np.savetxt("horizontal_spacing.csv", horizontal, fmt="%.2f")
-        # np.savetxt("vertical_spacing.csv", vertical, fmt="%.2f")
-
 #take two arrays of images, find the mean rms of the reference images, compare 
 #all other images to the reference mean and perform a ttest to see if there's a difference
 #between the reference images and the test images
@@ -325,126 +242,48 @@ def main():
     reference_images = []
     test_images = []
 
-    brightness_array = []
-
     for file in directory.iterdir():
-        if file.is_file() and file.name.startswith("ll_3d_darknesstest"):
+        if file.is_file() and file.name.startswith("ll_dots"):
             image_array = restructure_10bit(np.load(file))
-            #roi = image_array[:,200:400, 300:600]
-            # blue, green1, green2, red = bggr_separation_fits(image_array)
-            # image, number = find_sharpest_image_tenengrad(green1)
-            # if "ref" in file.name:
-            #     reference_images.append(image)
-            # else:
-            #     test_images.append(image)
+            blue, green1, green2, red = bggr_separation_fits(image_array)
+            image, number = find_sharpest_image_tenengrad(green1)
+            if "ref" in file.name:
+                reference_images.append(image)
+            else:
+                test_images.append(image)
             
-            # print(file.name, number)
+            print(file.name, number)
 
-            block_brightness = []
-            for image in image_array:
-                blocks = view_as_blocks(image, block_shape=(96,96))
-                block_brightness.append(np.mean(blocks, axis=(2,3)))
-            
-            block_brightness = np.array(block_brightness)
 
-            fig, axes = plt.subplots(14, 15, figsize=(15, 14))
+    reference_images = np.array(reference_images)
+    test_images = np.array(test_images)
 
-            reference = block_brightness[0]
-
-            vmin = np.min(block_brightness - reference)
-            vmax = np.max(block_brightness - reference)
-
-            for i, ax in enumerate(axes.flat):
-                if i < len(block_brightness):
-                    im = ax.imshow(block_brightness[i] - reference,
-                                cmap='bwr',
-                                vmin=vmin,
-                                vmax=vmax)
-                    ax.set_title(f"{i+1}", fontsize=6)
-                    ax.axis("off")
-                else:
-                    ax.axis("off")
-
-            fig.colorbar(im, ax=axes.ravel().tolist(), shrink=0.8)
-            plt.show()
-
-            #brightness_array.append(measure_brightness(image_array))
-
-    # for set_num, brightness in enumerate(brightness_array, start=1):
-    #     #brightness = brightness[10:]
-    #     darkest = np.argmin(brightness)
-
-    #     print(f"Set {set_num}:")
-    #     print(f" Darkest image = {darkest}")
-    #     print(f" Median brightness = {brightness[darkest]:.2f}")
+    #distortion testing
+    reference_rms = []
     
+    #find distortion for reference images
+    for image in reference_images:
+        rms = dot_distortion_rms(image)
+        #print(rms)
+        reference_rms.append(rms)
 
+    #print("\n")
 
-    # plt.figure(figsize=(8, 6))
-
-    # for i, profile in enumerate(brightness_array):
-    #     plt.plot(profile, label=f"Set {i+1}")
-
-    # plt.xlabel("Image Number")
-    # plt.ylabel("Brightness Standard Deviation")
-    # plt.title("Brightness Profiles")
-    # #plt.savefig('liquid-lens-testing/brightness-analysis/pyramid_brightnessstd_fullimage.png')
-    # plt.legend()
-    # plt.show()
-
-   
-    # #print(np.shape(reference_images))
-
-    # reference_images = np.array(reference_images)
-    # test_images = np.array(test_images)
-
-    # reference_rms = []
-    # #find distortion for reference images
-    # for image in reference_images:
-    #     rms = dot_distortion_rms(image)
-    #     #print(rms)
-    #     reference_rms.append(rms)
-
-    # #print("\n")
-
-    # #find distortion for test images
-    # test_rms = []
-    # for image in test_images:
-    #     rms = dot_distortion_rms(image)
-    #     #print(rms)
-    #     test_rms.append(rms)
+    #find distortion for test images
+    test_rms = []
+    for image in test_images:
+        rms = dot_distortion_rms(image)
+        #print(rms)
+        test_rms.append(rms)
 
     
-    # t_stat, p_value = ttest_ind(reference_rms, test_rms, equal_var=False)
+    t_stat, p_value = ttest_ind(reference_rms, test_rms, equal_var=False)
 
-    # print("t =", t_stat)
-    # print("p =", p_value)
-    
-    #check for duplicate images
-    # for i, ref in enumerate(reference_images):
-    #     for j, test in enumerate(test_images):
-    #         if np.array_equal(ref, test):
-    #             print(f"Reference {i} is identical to Test {j}")
+    print("t =", t_stat)
+    print("p =", p_value)
 
+    #sharpness testing
     #perform_rms_ttest(reference_images, test_images)
     
-
-
-
-    #plot one array
-    # image_array = restructure_10bit(np.load("raw-frames/raw_frame_50msst.npy"))
-    # blue, green1, green2, red = bggr_separation_fits(image_array)
-    # find_sharpest_image_gradient(green1)
-
-    #testing equivalence of two arrays
-    # reference = np.load("ll_test_ref1.npy")
-    # test = np.load("ll_test_test2.npy")
-    # subtract_arrays(reference, test)
-
-    #find the distance between dots
-    # image = np.load("liquid-lens-testing.npy")
-    # read_dots(image, 14, 18)
-
-    #array_equal(np.load("raw-frames/raw_frame_wlight_10gain.npy"))
 
 main()
