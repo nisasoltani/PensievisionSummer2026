@@ -1,3 +1,9 @@
+"""
+This code is for testing the framerate of a Pi Camera v2 or v3 at a specific sensor
+mode. The sensor modes can be found using the print(picam2.sensor_modes) function.
+The resolution, framerate, bit size, and exposure time should be changed based on 
+desired sensor mode.
+"""
 #import libraries
 from picamera2 import Picamera2
 from libcamera import controls
@@ -30,6 +36,7 @@ def configure_picam():
                 "Saturation": 0,        #specify saturation
                 "ExposureTime": 8333,  #specify exposure time (about 8333us max for 120fps)
                 "AnalogueGain": 1.0,     #specify analogue gain
+                #comment these lines when using the Pi Camera v2
                 "AfMode": controls.AfModeEnum.Manual,    #specify manual focus
                 "LensPosition": 10      #Focuses at 10cm
         })
@@ -73,7 +80,7 @@ def main():
 
         #capture raw images
         image_array = capture_image_array()
-        np.save("raw_frame_50msst.npy", image_array)
+        np.save("raw_frame.npy", image_array)
         
         #stop the picam
         picam2.stop()
