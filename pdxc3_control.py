@@ -74,6 +74,7 @@ class PDXC3Stage:
                         print("Failed to get read bytes")
                 return currentPos
 
+        #moves the linear stage based on a channel number and absolute position in millimeters
         def move(self, channel, position):
                 position_nm = int(position*1000000)
 
@@ -101,7 +102,7 @@ class PDXC3Stage:
                 current_pos = self.get_position(channel)/1000000
 
                 print(f"Stage is at {current_pos} mm")
-
+        #moves the linear stage relative to its current position based on channel input and step in mm
         def step(self, channel, step_size):
                 self.move(channel, self.get_position(channel)/1000000 + step_size)
 
