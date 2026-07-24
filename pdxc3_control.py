@@ -1,4 +1,9 @@
-import libraries
+"""
+This code creates an interactive environment for moving the linear stages attached to 
+the PDXC3 controller. 
+"""
+
+#import libraries
 from struct import pack, unpack
 import serial
 import time
@@ -12,6 +17,7 @@ port = "/dev/ttyUSB0"
 
 #create class
 class PDXC3Stage:
+        #initialize
         def __init__(self):
                 self.ser = serial.Serial(port, baudrate=115200, bytesize=8,
                                 parity=serial.PARITY_NONE, stopbits=1,
@@ -19,6 +25,7 @@ class PDXC3Stage:
 
                 self.position = {1: 0, 2:0}
 
+        #function for enabling the channel
         def enable(self, channel):
                 #enable the channel
                 command = pack('<HBBBB',0x0210, channel, 0x01, destination, source)
@@ -45,12 +52,14 @@ class PDXC3Stage:
 
                 return channelStatus
 
+        #function for setting the method to closed loop
         def set_closed_loop(self, channel):
                 command = command = pack('<HBBBB', 0x0640, channel, 0x02,
                        destination, source)
                 self.ser.write(command)
                 time.sleep(0.05)
 
+        #function for getting the read of the position for a channel 
         def get_position(self, channel):
                 #request device status
                 command = pack('<HBBBB',0x08E0, 0x00, 0x00, destination, source)
